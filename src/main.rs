@@ -1,22 +1,26 @@
 use sqlx::postgres::PgPoolOptions;
+use warp::Filter;
 use chrono;
+use std::env;
+use anyhow::Result;
 
 #[derive(Debug)]
-struct Admin {
+struct User {
     id: i32,
     name: String,
-    email: String,
-    token: Option<String>,
-    hash: Option<String>,
+    profile: Option<String>,
+    age: Option<i32>,
     created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>
+    updated_at: chrono::DateTime<chrono::Utc>,
+    deleted_at: Option<chrono::DateTime<chrono::Utc>>
 }
 
-#[async_std::main]
-async fn main() -> Result<(), sqlx::Error> {
+#[tokio::main]
+async fn main() -> Result<()> {
+    let database_url = env::var("DATABASE_URL")?;
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgres://postgres@localhost/kakuna-development").await?;
+        .connect(&database_url).await?;
 
     let row: (i64,) = sqlx::query_as("SELECT $1")
         .bind(150_i64)
@@ -26,10 +30,20 @@ async fn main() -> Result<(), sqlx::Error> {
     assert_eq!(row.0, 150);
 
     // DATABASE_URL must be set to use query_as! macro.
-    let admin: Admin = sqlx::query_as!(Admin, "SELECT * FROM admins LIMIT 1")
-        .fetch_one(&pool).await?;
+    let user: User = sqlx::query_as!(User, "
+        SELECT * 
+        FROM users 
+        LIMIT 1
+    ").fetch_one(&pool).await?;
 
-    println!("got {:?}", admin);
+    println!("got {:?}", user);
+
+    let hello = warp::path!("hello" / String)
+        .map(|name| format!("Hello, {}!", name));
+
+    warp::serve(hello)
+        .run(([127,0,0,1], 3030))
+        .await;
 
     Ok(())
 }
