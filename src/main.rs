@@ -1,4 +1,4 @@
-use sqlx::Pool;
+//use sqlx::Pool;
 use sqlx::postgres::Postgres;
 use sqlx::postgres::{PgPoolOptions};
 use sqlx::Transaction;
@@ -50,9 +50,9 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> {
-//async fn get_user_tx<'a>(tx: &'a PgPool) -> Result<User> {
+//https://stackoverflow.com/questions/65370752/how-do-i-create-an-actix-web-server-that-accepts-both-sqlx-database-pools-and-tr
+async fn get_user_tx<'a, E>(tx: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+//async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> {
     // DATABASE_URL must be set to use query_as! macro.
     let user: User = sqlx::query_as!(User, "
         INSERT INTO users (name, age) VALUES ('jane', 10)
@@ -62,7 +62,9 @@ async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> 
 
     Ok(user)
 }
-async fn get_user<'a>(pool: &'a Pool<Postgres>) -> Result<User> {
+
+async fn get_user<'a, E>(pool: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+//async fn get_user<'a>(pool: &'a Pool<Postgres>) -> Result<User> {
     // DATABASE_URL must be set to use query_as! macro.
     let user: User = sqlx::query_as!(User, "
         SELECT * 
