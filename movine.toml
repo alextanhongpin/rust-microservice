@@ -1,6 +1,9 @@
 [postgres]
-host = 'localhost'
-database = 'alextanhongpin'
-user = 'postgres'
-password = ''
+host = '127.0.0.1'
+database = 'test'
+user = 'john'
+password = '123456'
 port = 5432
+
+# Or supply a database url
+#database_url={database_url}

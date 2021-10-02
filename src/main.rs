@@ -3,7 +3,6 @@ use sqlx::postgres::Postgres;
 use sqlx::postgres::{PgPoolOptions};
 use sqlx::Transaction;
 use warp::Filter;
-use chrono;
 use std::env;
 use anyhow::Result;
 
@@ -33,12 +32,18 @@ async fn main() -> Result<()> {
     assert_eq!(row.0, 150);
 
     let mut tx: Transaction<'_, Postgres> = pool.begin().await?;
-    let user = get_user_tx(&mut tx).await?;
+    let user = insert_user(&mut tx).await?;
+    println!("insert {:?}", user);
+
+    let user = get_user(&mut tx).await?;
+    println!("query {:?}", user);
     tx.commit().await?;
-    println!("got {:?}", user);
 
     let user = get_user(&pool).await?;
-    println!("got {:?}", user);
+    println!("got user {:?}", user);
+
+    let users = get_users(&pool).await?;
+    println!("got users {:?}", users);
 
     let hello = warp::path!("hello" / String)
         .map(|name| format!("Hello, {}!", name));
@@ -50,15 +55,15 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
 //https://stackoverflow.com/questions/65370752/how-do-i-create-an-actix-web-server-that-accepts-both-sqlx-database-pools-and-tr
-async fn get_user_tx<'a, E>(tx: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn insert_user<'a, E>(tx: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
 //async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> {
     // DATABASE_URL must be set to use query_as! macro.
     let user: User = sqlx::query_as!(User, "
         INSERT INTO users (name, age) VALUES ('jane', 10)
         RETURNING *
     ").fetch_one(tx).await?;
-    println!("result is {:?}", user);
 
     Ok(user)
 }
@@ -73,4 +78,13 @@ async fn get_user<'a, E>(pool: E) -> Result<User> where E: sqlx::Executor<'a, Da
     ").fetch_one(pool).await?;
 
     Ok(user)
+}
+
+async fn get_users<'a, E>(pool: E) -> Result<Vec<User>> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+    let users: Vec<User> = sqlx::query_as!(User, "
+        SELECT * 
+        FROM users 
+    ").fetch_all(pool).await?;
+
+    Ok(users)
 }
