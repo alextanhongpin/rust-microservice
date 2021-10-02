@@ -71,9 +71,9 @@ async fn main() -> Result<()> {
 pub trait UserRepository {
     type Entity;
 
-    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
-    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity>where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
-    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<Self::Entity>>where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
+    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::PgExecutor<'a>;
+    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity>where T: sqlx::PgExecutor<'a>;
+    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<Self::Entity>>where T: sqlx::PgExecutor<'a>;
 }
 
 struct Repository {}
@@ -88,7 +88,7 @@ impl Repository {
 impl UserRepository for Repository {
     type Entity = User;
 
-    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::PgExecutor<'a>{
         let user: User = sqlx::query_as!(User, "
             INSERT INTO users (name, age) VALUES ('jane', 10)
             RETURNING *
@@ -97,7 +97,7 @@ impl UserRepository for Repository {
         Ok(user)
     }
 
-    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::PgExecutor<'a>{
         let user: User = sqlx::query_as!(User, "
             SELECT * 
             FROM users 
@@ -107,7 +107,7 @@ impl UserRepository for Repository {
         Ok(user)
     }
 
-    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<User>> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<User>> where T: sqlx::PgExecutor<'a>{
         let users: Vec<User> = sqlx::query_as!(User, "
             SELECT * 
             FROM users 
@@ -119,7 +119,7 @@ impl UserRepository for Repository {
 
 
 //https://stackoverflow.com/questions/65370752/how-do-i-create-an-actix-web-server-that-accepts-both-sqlx-database-pools-and-tr
-async fn insert_user<'a, T>(tx: T) -> Result<User> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn insert_user<'a, T>(tx: T) -> Result<User> where T: sqlx::PgExecutor<'a> {
 //async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> {
     // DATABASE_URL must be set to use query_as! macro.
     let user: User = sqlx::query_as!(User, "
@@ -130,7 +130,7 @@ async fn insert_user<'a, T>(tx: T) -> Result<User> where T: sqlx::Executor<'a, D
     Ok(user)
 }
 
-async fn get_user<'a, T>(pool: T) -> Result<User> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn get_user<'a, T>(pool: T) -> Result<User> where T: sqlx::PgExecutor<'a> {
     let user: User = sqlx::query_as!(User, "
         SELECT * 
         FROM users 
@@ -140,7 +140,7 @@ async fn get_user<'a, T>(pool: T) -> Result<User> where T: sqlx::Executor<'a, Da
     Ok(user)
 }
 
-async fn get_users<'a, T>(pool: T) -> Result<Vec<User>> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn get_users<'a, T>(pool: T) -> Result<Vec<User>> where T: sqlx::PgExecutor<'a> {
     let users: Vec<User> = sqlx::query_as!(User, "
         SELECT * 
         FROM users 
