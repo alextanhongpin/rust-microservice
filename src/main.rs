@@ -5,6 +5,7 @@ use sqlx::Transaction;
 use warp::Filter;
 use std::env;
 use anyhow::Result;
+use async_trait::async_trait;
 
 #[derive(Debug)]
 struct User {
@@ -45,6 +46,16 @@ async fn main() -> Result<()> {
     let users = get_users(&pool).await?;
     println!("got users {:?}", users);
 
+    // Testing out repository implementation.
+    let mut repo = Repository::new();
+    let mut tx: Transaction<'_, Postgres> = pool.begin().await?;
+    let user = repo.insert(&mut tx).await?;
+    println!("insert {:?}", user);
+
+    let user = repo.find(&mut tx).await?;
+    println!("query {:?}", user);
+    tx.commit().await?;
+
     let hello = warp::path!("hello" / String)
         .map(|name| format!("Hello, {}!", name));
 
@@ -56,8 +67,59 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[async_trait]
+pub trait UserRepository {
+    type Entity;
+
+    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
+    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity>where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
+    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<Self::Entity>>where T: sqlx::Executor<'a, Database = sqlx::Postgres>;
+}
+
+struct Repository {}
+
+impl Repository {
+    fn new() -> Self {
+        Repository{}
+    }
+}
+
+#[async_trait]
+impl UserRepository for Repository {
+    type Entity = User;
+
+    async fn insert<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+        let user: User = sqlx::query_as!(User, "
+            INSERT INTO users (name, age) VALUES ('jane', 10)
+            RETURNING *
+        ").fetch_one(conn).await?;
+
+        Ok(user)
+    }
+
+    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+        let user: User = sqlx::query_as!(User, "
+            SELECT * 
+            FROM users 
+            LIMIT 1
+        ").fetch_one(conn).await?;
+
+        Ok(user)
+    }
+
+    async fn find_all<'a, T>(&mut self, conn: T) -> Result<Vec<User>> where T: sqlx::Executor<'a, Database = sqlx::Postgres>{
+        let users: Vec<User> = sqlx::query_as!(User, "
+            SELECT * 
+            FROM users 
+        ").fetch_all(conn).await?;
+
+        Ok(users)
+    }
+}
+
+
 //https://stackoverflow.com/questions/65370752/how-do-i-create-an-actix-web-server-that-accepts-both-sqlx-database-pools-and-tr
-async fn insert_user<'a, E>(tx: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn insert_user<'a, T>(tx: T) -> Result<User> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
 //async fn get_user_tx<'a>(tx: &'a mut Transaction<'_, Postgres>) -> Result<User> {
     // DATABASE_URL must be set to use query_as! macro.
     let user: User = sqlx::query_as!(User, "
@@ -68,9 +130,7 @@ async fn insert_user<'a, E>(tx: E) -> Result<User> where E: sqlx::Executor<'a, D
     Ok(user)
 }
 
-async fn get_user<'a, E>(pool: E) -> Result<User> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
-//async fn get_user<'a>(pool: &'a Pool<Postgres>) -> Result<User> {
-    // DATABASE_URL must be set to use query_as! macro.
+async fn get_user<'a, T>(pool: T) -> Result<User> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
     let user: User = sqlx::query_as!(User, "
         SELECT * 
         FROM users 
@@ -80,7 +140,7 @@ async fn get_user<'a, E>(pool: E) -> Result<User> where E: sqlx::Executor<'a, Da
     Ok(user)
 }
 
-async fn get_users<'a, E>(pool: E) -> Result<Vec<User>> where E: sqlx::Executor<'a, Database = sqlx::Postgres> {
+async fn get_users<'a, T>(pool: T) -> Result<Vec<User>> where T: sqlx::Executor<'a, Database = sqlx::Postgres> {
     let users: Vec<User> = sqlx::query_as!(User, "
         SELECT * 
         FROM users 
