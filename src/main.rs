@@ -78,6 +78,9 @@ pub trait UserRepository {
 
 struct Repository {}
 
+// This does not work:  expected opaque type, found mutable reference.
+//trait Conn<'a> = impl sqlx::PgExecutor<'a>;
+
 impl Repository {
     fn new() -> Self {
         Repository{}
