@@ -8,8 +8,9 @@ edition = "2018"
 
 [dependencies]
 sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 warp = "0.3"
 tokio = { version = "1.2", features = ["full"] }
 anyhow = "1.0.38"
 async-trait = "0.1.51"
+serde = "1.0.130"

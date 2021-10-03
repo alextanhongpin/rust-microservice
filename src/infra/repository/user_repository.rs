@@ -28,12 +28,14 @@ impl Repository for UserRepository {
         Ok(user)
     }
 
-    async fn find<'a, T>(&mut self, conn: T) -> Result<Self::Entity> where T: sqlx::PgExecutor<'a>{
+    async fn find<'a, T>(&mut self, conn: T, id: &str) -> Result<Self::Entity> where T: sqlx::PgExecutor<'a>{
+        let id = id.parse::<i32>()?;
         let user: User = sqlx::query_as!(User, "
             SELECT * 
             FROM users 
-            LIMIT 1
-        ").fetch_one(conn).await?;
+            WHERE id = $1
+        ", id)
+          .fetch_one(conn).await?;
 
         Ok(user)
     }
